@@ -11,7 +11,7 @@ PROVIDES += "u-boot"
 PV = "v2015.01+git${SRCPV}"
 
 SRCBRANCH = "2015.01-baltoboard"
-SRCREV="13374b9f22bc761023e441eacd05ecf2ddfbe67c"
+SRCREV="0e18eabfda18d5a150505d13680f5a03a2f8a8e4"
 SRC_URI = "git://github.com/baltoboard/u-boot-2015.01.git;branch=${SRCBRANCH}"
 
 S = "${WORKDIR}/git"

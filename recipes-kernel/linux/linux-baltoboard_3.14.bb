@@ -14,7 +14,7 @@ PROVIDES += "virtual/kernel"
 PV = "3.14+git${SRCPV}"
 
 SRCBRANCH = "linux-3.14_baltoboard"
-SRCREV = "e2b2e8fb00fc4b9d6ac7bb723d510a3108b862a8"
+SRCREV = "ee9e0289a05ae9aaf4f34b8c03b5ddee564e0670"
 SRC_URI = "git://github.com/baltoboard/linux-3.14.git;branch=${SRCBRANCH} \
            file://defconfig"
 
