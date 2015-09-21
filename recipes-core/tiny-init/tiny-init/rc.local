@@ -16,7 +16,9 @@ mount --bind /var/volatile/run /run
 mount --bind /var/volatile/tmp /tmp
 
 export HOME=/home/root
-export QWS_MOUSE_PROTO=tslib:/dev/input/event0
+
+export QT_QPA_PLATFORM=linuxfb
+export QT_QPA_GENERIC_PLUGINS=evdevtouch
 
 # mount swap
 #swapon /dev/sda3
@@ -28,22 +30,30 @@ ifconfig eth0 192.168.84.170 up
 # limit stack size
 ulimit -s 1024
 
-# check for framebuffer and start DirectFB demo
-if [ -e "/sys/class/graphics/fb0" ]; then
-  if [ -e "/usr/bin/qtgameE" ]; then
-    echo "Starting QT4 game demo..."
-    qtgameE -noframe -noquit -qws &
-  else
-    echo "Starting DirectFB 3D demo..."
-    dfb3d --obj3d /usr/share/directfb-examples/3d/coke.obj &
-  fi
+# check for framebuffer
+have_framebuffer=false
+if [ -e "/sys/class/graphics/fb0" ] ; then
+  have_framebuffer=true
 fi
 
-# start webserver
-/etc/init.d/thttpd start
+# check for external ram
+have_external_ram=false
+if [ $(free | grep Mem | tr -s ' ' | cut -d ' ' -f 2) -gt 10240 ] ; then
+  have_external_ram=true
+fi
 
-# Use init scripts included with packages such as dropbear
-/etc/init.d/dropbear start
+if [ "$have_framebuffer" = true ] ; then
+  echo "Starting QT5 demo"
+  baltodemo5 &
+fi
+
+if [ "$have_framebuffer" = false ] || [ "$have_external_ram" = true ] ; then
+  # start webserver
+  /etc/init.d/thttpd start
+
+  # Use init scripts included with packages such as dropbear
+  /etc/init.d/dropbear start
+fi
 
 # Spawn a getty manually
 #setsid /sbin/getty 115200 ttyS2
