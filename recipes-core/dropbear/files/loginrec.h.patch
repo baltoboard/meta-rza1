@@ -1,0 +1,19 @@
+--- a/loginrec.h	2015-08-08 14:35:34.000000000 +0200
++++ b/loginrec.h	2015-10-14 21:51:50.945388949 +0200
+@@ -82,14 +82,14 @@
+ #  if defined(WTMPX_FILE) && !defined(DISABLE_WTMPX)
+ #    define USE_WTMPX
+ #  endif
+-#  if defined(WTMP_FILE) && !defined(DISABLE_WTMP)
++#  if defined(HAVE_UTMP_H) && defined(WTMP_FILE) && !defined(DISABLE_WTMP)
+ #    define USE_WTMP
+ #  endif
+ 
+ #endif
+ 
+ /* I hope that the presence of LASTLOG_FILE is enough to detect this */
+-#if defined(LASTLOG_FILE) && !defined(DISABLE_LASTLOG)
++#if defined(HAVE_LASTLOG_H) && defined(LASTLOG_FILE) && !defined(DISABLE_LASTLOG)
+ #  define USE_LASTLOG
+ #endif
+ 
