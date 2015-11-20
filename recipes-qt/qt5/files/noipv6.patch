@@ -9,9 +9,11 @@
              struct sockaddr_in6 *ns;
              ns = state._u._ext.nsaddrs[0];
              // nsaddrs will be NULL if no nameserver is set in /etc/resolv.conf
---- a/src/network/socket/qnativesocketengine_unix.cpp	2015-02-17 05:56:38.000000000 +0100
-+++ b/src/network/socket/qnativesocketengine_unix.cpp	2015-05-20 11:44:36.046539512 +0200
-@@ -56,6 +56,10 @@
+diff --git a/src/network/socket/qnativesocketengine_unix.cpp b/src/network/socket/qnativesocketengine_unix.cpp
+index 8869d75..468bb6a 100644
+--- a/src/network/socket/qnativesocketengine_unix.cpp
++++ b/src/network/socket/qnativesocketengine_unix.cpp
+@@ -57,6 +57,10 @@
  
  #include <netinet/tcp.h>
  
@@ -22,12 +24,12 @@
  QT_BEGIN_NAMESPACE
  
  #if defined QNATIVESOCKETENGINE_DEBUG
-@@ -223,20 +227,24 @@
+@@ -177,20 +181,24 @@ static void convertToLevelAndOption(QNativeSocketEngine::SocketOption opt,
          n = SO_KEEPALIVE;
          break;
      case QNativeSocketEngine::MulticastTtlOption:
 +#ifdef QT_HAS_IPV6
-         if (socketProtocol == QAbstractSocket::IPv6Protocol) {
+         if (socketProtocol == QAbstractSocket::IPv6Protocol || socketProtocol == QAbstractSocket::AnyIPProtocol) {
              level = IPPROTO_IPV6;
              n = IPV6_MULTICAST_HOPS;
          } else
@@ -39,7 +41,7 @@
          break;
      case QNativeSocketEngine::MulticastLoopbackOption:
 +#ifdef QT_HAS_IPV6
-         if (socketProtocol == QAbstractSocket::IPv6Protocol) {
+         if (socketProtocol == QAbstractSocket::IPv6Protocol || socketProtocol == QAbstractSocket::AnyIPProtocol) {
              level = IPPROTO_IPV6;
              n = IPV6_MULTICAST_LOOP;
          } else
@@ -47,32 +49,67 @@
          {
              level = IPPROTO_IP;
              n = IP_MULTICAST_LOOP;
-@@ -336,20 +344,24 @@
-         n = SO_KEEPALIVE;
-         break;
-     case QNativeSocketEngine::MulticastTtlOption:
+@@ -213,7 +221,11 @@ static void convertToLevelAndOption(QNativeSocketEngine::SocketOption opt,
+ bool QNativeSocketEnginePrivate::createNewSocket(QAbstractSocket::SocketType socketType,
+                                          QAbstractSocket::NetworkLayerProtocol &socketProtocol)
+ {
 +#ifdef QT_HAS_IPV6
-         if (socketProtocol == QAbstractSocket::IPv6Protocol) {
-             level = IPPROTO_IPV6;
-             n = IPV6_MULTICAST_HOPS;
-         } else
+     int protocol = (socketProtocol == QAbstractSocket::IPv6Protocol || socketProtocol == QAbstractSocket::AnyIPProtocol) ? AF_INET6 : AF_INET;
++#else
++    int protocol = AF_INET;
 +#endif
-         {
-             level = IPPROTO_IP;
-             n = IP_MULTICAST_TTL;
-         }
-         break;
-     case QNativeSocketEngine::MulticastLoopbackOption:
+     int type = (socketType == QAbstractSocket::UdpSocket) ? SOCK_DGRAM : SOCK_STREAM;
+ 
+     int socket = qt_safe_socket(protocol, type, 0, O_NONBLOCK);
+@@ -360,6 +372,7 @@ bool QNativeSocketEnginePrivate::nativeConnect(const QHostAddress &addr, quint16
+     struct sockaddr *sockAddrPtr = 0;
+     QT_SOCKLEN_T sockAddrSize = 0;
+ 
 +#ifdef QT_HAS_IPV6
-         if (socketProtocol == QAbstractSocket::IPv6Protocol) {
-             level = IPPROTO_IPV6;
-             n = IPV6_MULTICAST_LOOP;
-         } else
+     struct sockaddr_in6 sockAddrIPv6;
+ 
+     if (addr.protocol() == QAbstractSocket::IPv6Protocol) {
+@@ -374,6 +387,7 @@ bool QNativeSocketEnginePrivate::nativeConnect(const QHostAddress &addr, quint16
+         sockAddrSize = sizeof(sockAddrIPv6);
+         sockAddrPtr = (struct sockaddr *) &sockAddrIPv6;
+     } else
 +#endif
-         {
-             level = IPPROTO_IP;
-             n = IP_MULTICAST_LOOP;
-@@ -730,25 +742,34 @@
+     if (addr.protocol() == QAbstractSocket::IPv4Protocol) {
+         memset(&sockAddrIPv4, 0, sizeof(sockAddrIPv4));
+         sockAddrIPv4.sin_family = AF_INET;
+@@ -465,6 +479,7 @@ bool QNativeSocketEnginePrivate::nativeBind(const QHostAddress &address, quint16
+ 
+     struct sockaddr_in6 sockAddrIPv6;
+ 
++#ifdef QT_HAS_IPV6
+     if (address.protocol() == QAbstractSocket::IPv6Protocol || address.protocol() == QAbstractSocket::AnyIPProtocol) {
+ #ifdef IPV6_V6ONLY
+         int ipv6only = 0;
+@@ -483,6 +498,7 @@ bool QNativeSocketEnginePrivate::nativeBind(const QHostAddress &address, quint16
+         sockAddrSize = sizeof(sockAddrIPv6);
+         sockAddrPtr = (struct sockaddr *) &sockAddrIPv6;
+     } else
++#endif
+         if (address.protocol() == QAbstractSocket::IPv4Protocol) {
+             memset(&sockAddrIPv4, 0, sizeof(sockAddrIPv4));
+             sockAddrIPv4.sin_family = AF_INET;
+@@ -635,6 +651,7 @@ static bool multicastMembershipHelper(QNativeSocketEnginePrivate *d,
+     ip_mreq mreq4;
+     ipv6_mreq mreq6;
+ 
++#ifdef QT_HAS_IPV6
+     if (groupAddress.protocol() == QAbstractSocket::IPv6Protocol) {
+         level = IPPROTO_IPV6;
+         sockOpt = how6;
+@@ -645,6 +662,7 @@ static bool multicastMembershipHelper(QNativeSocketEnginePrivate *d,
+         memcpy(&mreq6.ipv6mr_multiaddr, &ip6, sizeof(ip6));
+         mreq6.ipv6mr_interface = interface.index();
+     } else
++#endif
+     if (groupAddress.protocol() == QAbstractSocket::IPv4Protocol) {
+         level = IPPROTO_IP;
+         sockOpt = how4;
+@@ -697,25 +715,34 @@ static bool multicastMembershipHelper(QNativeSocketEnginePrivate *d,
  bool QNativeSocketEnginePrivate::nativeJoinMulticastGroup(const QHostAddress &groupAddress,
                                                            const QNetworkInterface &interface)
  {
@@ -104,10 +141,10 @@
  QNetworkInterface QNativeSocketEnginePrivate::nativeMulticastInterface() const
  {
 +#ifdef QT_HAS_IPV6
-     if (socketProtocol == QAbstractSocket::IPv6Protocol) {
+     if (socketProtocol == QAbstractSocket::IPv6Protocol || socketProtocol == QAbstractSocket::AnyIPProtocol) {
          uint v;
          QT_SOCKOPTLEN_T sizeofv = sizeof(v);
-@@ -756,6 +777,7 @@
+@@ -723,6 +750,7 @@ QNetworkInterface QNativeSocketEnginePrivate::nativeMulticastInterface() const
              return QNetworkInterface();
          return QNetworkInterface::interfaceFromIndex(v);
      }
@@ -115,12 +152,12 @@
  
      struct in_addr v = { 0 };
      QT_SOCKOPTLEN_T sizeofv = sizeof(v);
-@@ -779,10 +801,12 @@
+@@ -746,10 +774,12 @@ QNetworkInterface QNativeSocketEnginePrivate::nativeMulticastInterface() const
  
  bool QNativeSocketEnginePrivate::nativeSetMulticastInterface(const QNetworkInterface &iface)
  {
 +#ifdef QT_HAS_IPV6
-     if (socketProtocol == QAbstractSocket::IPv6Protocol) {
+     if (socketProtocol == QAbstractSocket::IPv6Protocol || socketProtocol == QAbstractSocket::AnyIPProtocol) {
          uint v = iface.index();
          return (::setsockopt(socketDescriptor, IPPROTO_IPV6, IPV6_MULTICAST_IF, &v, sizeof(v)) != -1);
      }
@@ -128,3 +165,50 @@
  
      struct in_addr v;
      if (iface.isValid()) {
+@@ -878,6 +908,7 @@ qint64 QNativeSocketEnginePrivate::nativeSendDatagram(const char *data, qint64 l
+     struct sockaddr *sockAddrPtr = 0;
+     QT_SOCKLEN_T sockAddrSize = 0;
+ 
++#ifdef QT_HAS_IPV6
+     struct sockaddr_in6 sockAddrIPv6;
+     if (host.protocol() == QAbstractSocket::IPv6Protocol
+         || socketProtocol == QAbstractSocket::IPv6Protocol
+@@ -891,7 +922,9 @@ qint64 QNativeSocketEnginePrivate::nativeSendDatagram(const char *data, qint64 l
+         memcpy(&sockAddrIPv6.sin6_addr.s6_addr, &tmp, sizeof(tmp));
+         sockAddrSize = sizeof(sockAddrIPv6);
+         sockAddrPtr = (struct sockaddr *)&sockAddrIPv6;
+-    } else if (host.protocol() == QAbstractSocket::IPv4Protocol) {
++    } else
++#endif
++    if (host.protocol() == QAbstractSocket::IPv4Protocol) {
+         memset(&sockAddrIPv4, 0, sizeof(sockAddrIPv4));
+         sockAddrIPv4.sin_family = AF_INET;
+         sockAddrIPv4.sin_port = htons(port);
+@@ -945,9 +978,11 @@ bool QNativeSocketEnginePrivate::fetchConnectionParameters()
+         case AF_INET:
+             socketProtocol = QAbstractSocket::IPv4Protocol;
+             break;
++#ifdef QT_HAS_IPV6
+         case AF_INET6:
+             socketProtocol = QAbstractSocket::IPv6Protocol;
+             break;
++#endif
+         default:
+             socketProtocol = QAbstractSocket::UnknownNetworkLayerProtocol;
+             break;
+@@ -958,6 +993,7 @@ bool QNativeSocketEnginePrivate::fetchConnectionParameters()
+         return false;
+     }
+ 
++#ifdef QT_HAS_IPV6
+ #if defined (IPV6_V6ONLY)
+     // determine if local address is dual mode
+     // On linux, these are returned as "::" (==AnyIPv6)
+@@ -976,6 +1012,7 @@ bool QNativeSocketEnginePrivate::fetchConnectionParameters()
+             }
+     }
+ #endif
++#endif
+ 
+     // Determine the remote address
+     if (!::getpeername(socketDescriptor, &sa.a, &sockAddrSize))
